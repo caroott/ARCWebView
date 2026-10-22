@@ -308,9 +308,9 @@ function lookup<T>(map: Map<string, T>, key: string | undefined): T | undefined 
   return key === undefined ? undefined : map.get(key)
 }
 
-// The incomplete rows that belong to a view: all rows in the datasets view, the rows of the dataset in the
-// processes view, and the rows of the process in the groups view. The detail view counts the rows that the
-// detail graph shows, the rows of the process that have a member of the selected group on the side of the group.
+// The incomplete rows that belong to a view. The datasets view counts all rows. The processes view counts the
+// rows of the dataset, and the groups view counts the rows of the process. The detail view counts the rows that
+// the detail graph shows, the rows of the process that have a member of the selected group on the side of the group.
 // The lineage view counts the rows of the walk from the node of the lineage graph that touch a node of that
 // graph. The caller passes the graph after the cut. An id that the index does not know counts no row.
 export function incompleteRows(

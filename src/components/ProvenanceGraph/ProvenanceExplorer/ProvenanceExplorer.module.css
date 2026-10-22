@@ -63,6 +63,10 @@
   min-width: 0;
 }
 
+.navClipped {
+  overflow: hidden;
+}
+
 /*
  * The ruler is the invisible full content of the header, measured to decide between the two
  * layouts. The box has the width of the header content area and no height. The ruler inside it
@@ -114,21 +118,29 @@
 }
 
 /*
- * In the narrow header the crumb before the current one gives way first. Flex items shrink in
- * proportion to their shrink factor. The factor of the current crumb is so small that its share stays
- * below a layout pixel, so it keeps its whole text until the crumb before it is gone.
+ * In the narrow header every crumb keeps a small width and shows an ellipsis when it is cut. The
+ * crumb before the current one gives way first, and the shrink factors set that order. Their sum
+ * stays at 1 or more, because a sum below 1 makes the browser take back only that part of the
+ * overflow, and the crumbs would stick out of the header.
  */
 .crumbShrinking {
-  min-width: 0;
-  flex-shrink: 0.0001;
+  min-width: 2.25rem;
+  flex-shrink: 1;
 }
 
 .crumbGivingWay {
-  min-width: 0;
+  min-width: 3rem;
+  flex-shrink: 1000;
+}
+
+.crumbNarrow {
+  min-width: 1.75rem;
+  flex-shrink: 10;
 }
 
 .crumbShrinking .crumbCurrent,
-.crumbGivingWay .crumbButton {
+.crumbGivingWay .crumbButton,
+.crumbNarrow .crumbButton {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -843,12 +843,14 @@ export default function WebViewer({
                 </Stack>
             </SplitPageLayout.Content>
         </SplitPageLayout>
-        <section aria-label="Provenance graph" className="px-3 px-md-4 pb-4">
-            <Heading as="h2" variant="medium" className="mb-2">
-                Provenance graph
-            </Heading>
-            {arc.value && <ProvenanceGraph arc={arc.value} />}
-        </section>
+        {arc.value && (
+            <section aria-labelledby="provenance-graph-heading" className="px-3 px-md-4 pb-4">
+                <Heading as="h2" variant="medium" className="mb-2" id="provenance-graph-heading">
+                    Provenance graph
+                </Heading>
+                <ProvenanceGraph arc={arc.value} />
+            </section>
+        )}
         </>
     );
 }

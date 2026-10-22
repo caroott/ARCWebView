@@ -308,9 +308,9 @@ export function GraphCanvas({
   const markerPrefix = useId().replace(/:/g, '')
 
   // A changed resetKey is a new view. React lets a component reset state while it renders, so the new
-  // epoch is known before anything is drawn. Results, expansion and the scroll position belong to an
-  // epoch, so a result that arrives late for an earlier view is never drawn, and returning to an
-  // earlier resetKey starts like a new view.
+  // epoch is known before anything is drawn. Results and expansion carry the epoch they were made in,
+  // and the scroll position is applied once for each epoch. A result that arrives late for an earlier
+  // view is therefore never drawn, and returning to an earlier resetKey starts like a new view.
   const [navigation, setNavigation] = useState({ viewKey: resetKey, epoch: 0 })
   const epoch = navigation.viewKey === resetKey ? navigation.epoch : navigation.epoch + 1
   if (navigation.viewKey !== resetKey) setNavigation({ viewKey: resetKey, epoch })
@@ -385,7 +385,7 @@ export function GraphCanvas({
     `${titles.get(laid.edge.from) ?? laid.edge.from} to ${titles.get(laid.edge.to) ?? laid.edge.to}`
 
   // One list at a time. It belongs to the layout and the width it was opened on, so a new layout (an
-  // expansion, other data, a resize that relays out) or a new width closes it. The state is cleared
+  // expansion, other data, a resize that relays out) or a new width closes it. The render clears the state
   // then, so the list cannot reappear when the box returns to the old width. The expanded edges of a
   // box that became too narrow are drawn collapsed, and they expand again when the box grows.
   const [menu, setMenu] = useState<{ edgeId: string; layout: GraphLayout; width: number; opener: Element } | null>(null)

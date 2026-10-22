@@ -179,16 +179,26 @@ function Breadcrumbs({
 }) {
   const hidden = hiddenCrumbs(crumbs, narrow)
   const visible = hidden.length > 0 ? [crumbs[0], ...crumbs.slice(-2)] : crumbs
+  // Without the menu nothing has to stick out of the nav, so the nav cuts what does not fit. The list of
+  // the menu needs the room below the nav.
+  const clipped = narrow && hidden.length === 0
   return (
-    <nav aria-label="Breadcrumb" className={styles.nav}>
+    <nav aria-label="Breadcrumb" className={clipped ? `${styles.nav} ${styles.navClipped}` : styles.nav}>
       <ol className={styles.crumbs}>
         {visible.map(({ label, view }, position) => {
           const isLast = position === visible.length - 1
-          // In the narrow header the crumb before the current one gives way first, then the current one.
+          // In the narrow header the crumb before the current one gives way first.
           const givesWay = narrow && position > 0 && position === visible.length - 2
           const shown = cutLabel(label)
-          // The CSS can cut these two crumbs of the narrow header, so they always carry their full text.
-          const title = shown === label && !(narrow && (isLast || givesWay)) ? undefined : label
+          // The CSS can cut every crumb of the narrow header, so each one carries its full text.
+          const title = shown === label && !narrow ? undefined : label
+          const crumbClass = !narrow
+            ? styles.crumb
+            : isLast
+              ? `${styles.crumb} ${styles.crumbShrinking}`
+              : givesWay
+                ? `${styles.crumb} ${styles.crumbGivingWay}`
+                : `${styles.crumb} ${styles.crumbNarrow}`
           return (
             <Fragment key={view}>
               {position === 1 && hidden.length > 0 && (
@@ -197,15 +207,7 @@ function Breadcrumbs({
                   <HiddenCrumbsMenu hidden={hidden} onNavigate={onNavigate} />
                 </li>
               )}
-              <li
-                className={
-                  narrow && isLast
-                    ? `${styles.crumb} ${styles.crumbShrinking}`
-                    : givesWay
-                      ? `${styles.crumb} ${styles.crumbGivingWay}`
-                      : styles.crumb
-                }
-              >
+              <li className={crumbClass}>
                 {position > 0 && <Separator />}
                 {isLast ? (
                   <span className={styles.crumbCurrent} aria-current="page" title={title}>
@@ -331,8 +333,8 @@ export function ProvenanceExplorer({ index, embedded = false }: { index: Provena
   const { view, selectedDataset, selectedProcess, selectedGroup, selectedNode } = nav
   const { narrow, boxRef, fullRef } = useNarrowHeader()
 
-  // Only the level of the current view is computed. The content keeps its identity until the index or the
-  // selection changes, because the canvas lays out again for new arrays.
+  // The explorer computes only the level of the current view. The content keeps its identity until the
+  // index or the selection changes, because the canvas lays out again for new arrays.
   const content = useMemo(
     () => contentOf(index, { view, selectedDataset, selectedProcess, selectedGroup, selectedNode }),
     [index, view, selectedDataset, selectedProcess, selectedGroup, selectedNode],

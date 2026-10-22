@@ -9,13 +9,15 @@ import {
 import FileViewer from "../FileViewer";
 import FileTable from "../FileTable";
 import FileBreadcrumbs from "../FileBreadcrumbs";
+import ProvenanceGraph from "../ProvenanceGraph";
 import {
     SplitPageLayout,
     Stack,
     IconButton,
     useResponsiveValue,
     Dialog,
-    Banner
+    Banner,
+    Heading
 } from "@primer/react";
 import {
     type ContentType,
@@ -729,6 +731,7 @@ export default function WebViewer({
             </div>
         </div>
     ) : (
+        <>
         <SplitPageLayout>
             {/* <SplitPageLayout.Header >
         </SplitPageLayout.Header> */}
@@ -840,5 +843,12 @@ export default function WebViewer({
                 </Stack>
             </SplitPageLayout.Content>
         </SplitPageLayout>
+        <section aria-label="Provenance graph" className="px-3 px-md-4 pb-4">
+            <Heading as="h2" variant="medium" className="mb-2">
+                Provenance graph
+            </Heading>
+            {arc.value && <ProvenanceGraph arc={arc.value} />}
+        </section>
+        </>
     );
 }

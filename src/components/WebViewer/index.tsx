@@ -746,7 +746,7 @@ export default function WebViewer({
     const [graphNav, setGraphNav] = useState<Navigation>(START_NAVIGATION);
     const [graphFocus, setGraphFocus] = useState(false);
     // A new index is another ARC, so the selection of the old one must not outlive it. React lets a
-    // component reset state while it renders, so nothing of the old selection is drawn.
+    // component reset state while it renders, so the explorer draws nothing of the old selection.
     const [seenIndex, setSeenIndex] = useState(index);
     if (seenIndex !== index) {
         setSeenIndex(index);
@@ -826,6 +826,7 @@ export default function WebViewer({
             setSidebarActive(false);
         }
         viewerRef.current?.scrollIntoView({ block: "start" });
+        viewerRef.current?.focus({ preventScroll: true });
     };
 
     const showInGraph = (target: Navigation) => {
@@ -892,7 +893,12 @@ export default function WebViewer({
         </div>
     ) : (
         <>
-            <div ref={viewerRef}>
+            <div
+                ref={viewerRef}
+                role="region"
+                aria-label="File viewer"
+                tabIndex={-1}
+            >
                 <SplitPageLayout>
                     {/* <SplitPageLayout.Header >
                 </SplitPageLayout.Header> */}

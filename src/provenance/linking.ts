@@ -10,11 +10,13 @@ export interface ViewerTarget {
   table?: string
 }
 
-// ARCtrl splits a data name at "#" into a path and a selector (file.csv#col=1). Only a name with
-// exactly one "#" has a selector, so any other name is the path as a whole.
+// ARCtrl trims "#" from both ends of a data name and splits the rest at "#" into a path and a selector
+// (file.csv#col=1). Only a result with exactly two parts has a selector, so any other name is the path as a
+// whole.
 export function dataPathOf(nodeId: string): string {
-  const parts = nodeId.split('#')
-  return parts.length === 2 ? parts[0] : nodeId
+  const trimmed = nodeId.replace(/^#+|#+$/g, '')
+  const parts = trimmed.split('#')
+  return parts.length === 2 ? parts[0] : trimmed
 }
 
 // The file tree drops empty segments, so "a//b" and "a/b/" both mean "a/b".
@@ -44,8 +46,8 @@ export function graphToViewerTarget(
   const present = (target: ViewerTarget | undefined) =>
     target !== undefined && (target.path === '' || hasPath(target.path)) ? target : undefined
   // The key of a process is not split. The record holds its dataset and its table name.
-  const processTarget = (): ViewerTarget | undefined => {
-    const process = nav.selectedProcess === undefined ? undefined : index.processByKey.get(nav.selectedProcess)
+  const processTarget = (key: string | undefined): ViewerTarget | undefined => {
+    const process = key === undefined ? undefined : index.processByKey.get(key)
     const dataset = process === undefined ? undefined : index.datasetById.get(process.datasetId)
     return process && dataset ? present({ path: isaFileOf(dataset), table: process.name }) : undefined
   }
@@ -58,16 +60,21 @@ export function graphToViewerTarget(
     }
     case 'groups':
     case 'detail':
-      return processTarget()
+      return processTarget(nav.selectedProcess)
     case 'lineage': {
       const node = nav.selectedNode === undefined ? undefined : index.nodeById.get(nav.selectedNode)
-      if (node?.kind === 'data') {
-        const found = present({ path: normalizePath(dataPathOf(node.id)) })
+      if (node === undefined) return undefined
+      if (node.kind === 'data') {
+        // An empty path is no file. The root is not the place of a node.
+        const path = normalizePath(dataPathOf(node.id))
+        const found = path === '' ? undefined : present({ path })
         if (found) return found
       }
-      // Only data nodes are paths, and a data path can be missing from the tree. The process that led to the
-      // node is the next best place.
-      return processTarget()
+      // A node that is not a data file in the tree opens the table of one of its processes. The selected
+      // process counts only when the node belongs to it, because a lineage can be open without a selection
+      // or with the selection of another dataset. Otherwise the first process of the node applies.
+      const selected = nav.selectedProcess
+      return processTarget(selected !== undefined && node.processKeys.includes(selected) ? selected : node.processKeys[0])
     }
   }
 }
@@ -112,9 +119,10 @@ export function viewerToNavigation(
     const candidate = segments.slice(0, length).join('/')
     const ids = dataNodePaths.get(candidate)
     if (!ids) continue
-    // Several selector variants without a plain node leave no single node to pick. The search stops there
-    // and the dataset folder rule applies.
-    const id = ids.includes(candidate) ? candidate : ids.length === 1 ? ids[0] : undefined
+    // The plain id is the one without a selector. It can still hold "//" or a trailing "/", so the search
+    // compares its normalized form. Several selector variants without a plain node leave no single node to pick. The
+    // search stops there and the dataset folder rule applies.
+    const id = ids.find((each) => normalizePath(each) === candidate) ?? (ids.length === 1 ? ids[0] : undefined)
     if (id === undefined) break
     return { view: 'lineage', selectedNode: id }
   }

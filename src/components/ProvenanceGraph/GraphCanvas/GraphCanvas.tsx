@@ -307,10 +307,10 @@ export function GraphCanvas({
   const scrolledIn = useRef<number | null>(null)
   const markerPrefix = useId().replace(/:/g, '')
 
-  // A changed resetKey is a new view. React lets a component reset state while it renders, so the new
-  // epoch is known before anything is drawn. Results and expansion carry the epoch they were made in,
-  // and the canvas scrolls once for each epoch. It therefore never draws a result that arrives late for
-  // an earlier view, and returning to an earlier resetKey starts like a new view.
+  // A changed resetKey is a new view. React lets a component reset state while it renders, so the
+  // component knows the new epoch before it draws anything. Results and expansion carry the epoch they
+  // belong to, and the canvas scrolls once for each epoch. It therefore never draws a result that
+  // arrives late for an earlier view, and returning to an earlier resetKey starts like a new view.
   const [navigation, setNavigation] = useState({ viewKey: resetKey, epoch: 0 })
   const epoch = navigation.viewKey === resetKey ? navigation.epoch : navigation.epoch + 1
   if (navigation.viewKey !== resetKey) setNavigation({ viewKey: resetKey, epoch })

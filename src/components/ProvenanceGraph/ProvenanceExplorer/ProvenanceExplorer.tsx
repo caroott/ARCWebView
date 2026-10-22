@@ -1,11 +1,12 @@
 import { ActionList, ActionMenu, Banner } from '@primer/react'
-import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { backTo, type Navigation, type ProvenanceView } from '../../../provenance/navigation'
 import { datasetGraph, lineage, processDetail, processGraph, processGroups } from '../../../provenance/queries'
 import type { ProvenanceIndex } from '../../../provenance/types'
 import ErrorBoundary from '../ErrorBoundary'
 import { errorMessage } from '../errorMessage'
 import { GraphCanvas } from '../GraphCanvas'
-import { Legend, type ProvenanceView } from './Legend'
+import { Legend } from './Legend'
 import styles from './ProvenanceExplorer.module.css'
 import {
   datasetsToCanvas,
@@ -20,20 +21,10 @@ import {
   type IncompleteRows,
 } from './toCanvas'
 
-interface Navigation {
-  view: ProvenanceView
-  selectedDataset?: string
-  selectedProcess?: string
-  selectedGroup?: string
-  selectedNode?: string
-}
-
 interface Crumb {
   label: string
   view: ProvenanceView
 }
-
-const VIEWS: ProvenanceView[] = ['datasets', 'processes', 'groups', 'detail', 'lineage']
 
 // Only these views can come up empty. A group always has a member and a lineage always contains its own node.
 const NOTHING_TO_SHOW: Partial<Record<ProvenanceView, string>> = {
@@ -42,21 +33,7 @@ const NOTHING_TO_SHOW: Partial<Record<ProvenanceView, string>> = {
   groups: 'This process has no inputs or outputs.',
 }
 
-const START: Navigation = { view: 'datasets' }
-
 const CRUMB_MAX_LENGTH = 28
-
-// Returns to an earlier view and drops the selections that belong to the deeper ones.
-function backTo(nav: Navigation, view: ProvenanceView): Navigation {
-  const depth = VIEWS.indexOf(view)
-  return {
-    view,
-    selectedDataset: depth >= 1 ? nav.selectedDataset : undefined,
-    selectedProcess: depth >= 2 ? nav.selectedProcess : undefined,
-    selectedGroup: depth >= 3 ? nav.selectedGroup : undefined,
-    selectedNode: depth >= 4 ? nav.selectedNode : undefined,
-  }
-}
 
 // What the canvas of a view shows. `cap` holds the shown and the total node count of a lineage that was
 // cut. `incomplete` counts the rows of the view that have no output or no input yet.
@@ -264,20 +241,27 @@ function HeaderRuler({
 // the header is as wide as the card and the ruler always holds the full content. The answer is
 // therefore the same in either layout, so the header cannot flip back and forth. The observed
 // elements keep their height in both layouts, so a layout switch does not fire the observer again.
-function useNarrowHeader() {
+// The actions beside the crumbs take part of the content area, so the crumbs get what is left.
+function useNarrowHeader(hasActions: boolean) {
   const boxRef = useRef<HTMLDivElement>(null)
   const fullRef = useRef<HTMLDivElement>(null)
+  const actionsRef = useRef<HTMLDivElement>(null)
   const [narrow, setNarrow] = useState(false)
   useLayoutEffect(() => {
     const box = boxRef.current
     const full = fullRef.current
+    const actions = hasActions ? actionsRef.current : null
     if (!box || !full) return
+    // The header sets the gap between the crumbs and the actions, and the ruler box inherits it.
+    const gap = parseFloat(getComputedStyle(box).getPropertyValue('--header-gap')) || 0
     let available = Infinity
+    let reserved = 0
     let natural = 0
     let frame = 0
     const observer = new ResizeObserver((entries) => {
       for (const { target, contentRect } of entries) {
         if (target === box) available = contentRect.width
+        else if (target === actions) reserved = contentRect.width + gap
         else natural = contentRect.width
       }
       // The switch waits for the next frame. Changing the layout inside the callback would resize
@@ -285,17 +269,18 @@ function useNarrowHeader() {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         // A fraction of a pixel counts against fitting, so rounding never pushes the full header past its line.
-        setNarrow(Math.ceil(natural) > Math.floor(available))
+        setNarrow(Math.ceil(natural) > Math.floor(available - reserved))
       })
     })
     observer.observe(box)
     observer.observe(full)
+    if (actions) observer.observe(actions)
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
     }
-  }, [])
-  return { narrow, boxRef, fullRef }
+  }, [hasActions])
+  return { narrow, boxRef, fullRef, actionsRef }
 }
 
 const focusElement = (element: HTMLElement | null) => element?.focus()
@@ -310,28 +295,32 @@ function ViewError({ message, focus }: { message: string; focus: boolean }) {
   )
 }
 
+interface ProvenanceExplorerProps {
+  index: ProvenanceIndex
+  // The owner holds the navigation. The explorer reports each click and each crumb through onNavChange.
+  nav: Navigation
+  onNavChange: (next: Navigation) => void
+  // Whether whatever replaces the view takes focus, because the clicked node or crumb is gone. The owner
+  // sets it after a navigation that started in the explorer and unsets it after one that started outside.
+  focusOnNavigation: boolean
+  // Shown at the right end of the header.
+  actions?: ReactNode
+  embedded?: boolean
+}
+
 // The index comes ready-built from the parent. The explorer runs the queries itself, one per level.
 // The parent box must have a height. The card fills it and the graph scrolls inside the card.
-export function ProvenanceExplorer({ index, embedded = false }: { index: ProvenanceIndex; embedded?: boolean }) {
-  const [nav, setNav] = useState<Navigation>(START)
-  // After the first navigation, whatever replaces the view takes focus, because the clicked node
-  // or crumb is gone.
-  const [navigated, setNavigated] = useState(false)
-  // A new index is another ARC, so the selection of the old one must not outlive it. React lets a
-  // component reset state while it renders, so nothing of the old selection is drawn.
-  // The parent keeps the index identity stable while the ARC stays the same.
-  const [seenIndex, setSeenIndex] = useState(index)
-  if (seenIndex !== index) {
-    setSeenIndex(index)
-    setNav(START)
-    setNavigated(false)
-  }
-  const navigate = useCallback((next: Navigation | ((current: Navigation) => Navigation)) => {
-    setNavigated(true)
-    setNav(next)
-  }, [])
+export function ProvenanceExplorer({
+  index,
+  nav,
+  onNavChange,
+  focusOnNavigation,
+  actions,
+  embedded = false,
+}: ProvenanceExplorerProps) {
   const { view, selectedDataset, selectedProcess, selectedGroup, selectedNode } = nav
-  const { narrow, boxRef, fullRef } = useNarrowHeader()
+  const hasActions = Boolean(actions)
+  const { narrow, boxRef, fullRef, actionsRef } = useNarrowHeader(hasActions)
 
   // The explorer computes only the level of the current view. The content keeps its identity until the
   // index or the selection changes, because the canvas lays out again for new arrays.
@@ -345,28 +334,28 @@ export function ProvenanceExplorer({ index, embedded = false }: { index: Provena
     (id: string) => {
       switch (view) {
         case 'datasets':
-          navigate({ view: 'processes', selectedDataset: id })
+          onNavChange({ view: 'processes', selectedDataset: id })
           break
         case 'processes':
           // A process of another dataset opens the groups of that dataset.
-          navigate({
+          onNavChange({
             view: 'groups',
             selectedDataset: index.processByKey.get(id)?.datasetId ?? selectedDataset,
             selectedProcess: id,
           })
           break
         case 'groups':
-          navigate({ ...nav, view: 'detail', selectedGroup: id })
+          onNavChange({ ...nav, view: 'detail', selectedGroup: id })
           break
         case 'detail':
-          navigate({ ...nav, view: 'lineage', selectedNode: id })
+          onNavChange({ ...nav, view: 'lineage', selectedNode: id })
           break
         case 'lineage':
-          navigate({ ...nav, selectedNode: id })
+          onNavChange({ ...nav, selectedNode: id })
           break
       }
     },
-    [nav, view, index, selectedDataset, navigate],
+    [nav, view, index, selectedDataset, onNavChange],
   )
 
   // The labels come from the index, and an id the index does not know is its own label.
@@ -402,8 +391,13 @@ export function ProvenanceExplorer({ index, embedded = false }: { index: Provena
         <Breadcrumbs
           crumbs={crumbs}
           narrow={narrow}
-          onNavigate={(target) => navigate((current) => backTo(current, target))}
+          onNavigate={(target) => onNavChange(backTo(nav, target))}
         />
+        {hasActions && (
+          <div className={styles.actions} ref={actionsRef}>
+            {actions}
+          </div>
+        )}
         <HeaderRuler crumbs={crumbs} boxRef={boxRef} fullRef={fullRef} />
       </header>
       {/* An error while the body renders shows the message in its place and leaves the header alone. A new view clears it. */}
@@ -411,7 +405,7 @@ export function ProvenanceExplorer({ index, embedded = false }: { index: Provena
         resetKey={viewKey}
         fallback={(message) => (
           <div className={styles.body}>
-            <ViewError message={message} focus={navigated} />
+            <ViewError message={message} focus={focusOnNavigation} />
           </div>
         )}
       >
@@ -422,7 +416,7 @@ export function ProvenanceExplorer({ index, embedded = false }: { index: Provena
             </p>
           )}
           {content.kind === 'failed' ? (
-            <ViewError message={content.message} focus={navigated} />
+            <ViewError message={content.message} focus={focusOnNavigation} />
           ) : emptyMessage === null && content.kind === 'graph' ? (
             <div className={styles.canvas}>
               <GraphCanvas
@@ -432,11 +426,11 @@ export function ProvenanceExplorer({ index, embedded = false }: { index: Provena
                 onNodeClick={handleNodeClick}
                 centerNodeId={content.shown.centerNodeId}
                 resetKey={viewKey}
-                focusOnMount={navigated}
+                focusOnMount={focusOnNavigation}
               />
             </div>
           ) : (
-            <p className={styles.empty} tabIndex={-1} ref={navigated ? focusElement : undefined}>
+            <p className={styles.empty} tabIndex={-1} ref={focusOnNavigation ? focusElement : undefined}>
               {emptyMessage}
             </p>
           )}

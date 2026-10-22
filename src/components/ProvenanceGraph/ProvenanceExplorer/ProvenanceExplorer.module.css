@@ -63,6 +63,18 @@
   min-width: 0;
 }
 
+/*
+ * The actions keep their size, and the crumbs give up room for them. A small button is taller than
+ * the crumbs, so the negative margin lets it use the header padding. The header then has the same
+ * height with and without actions.
+ */
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-block: -4px;
+}
+
 .navClipped {
   overflow: hidden;
 }

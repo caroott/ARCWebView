@@ -58,7 +58,8 @@ export interface GraphCanvasProps {
   centerNodeId?: string
   // Changing it resets expanded edges and the scroll position (a new view).
   resetKey: string
-  // Focus the canvas once after its first layout, as after a resetKey change. A canvas that
-  // mounts fresh for a new view never sees the key change, so its parent sets this.
+  // Focus the canvas once after its first layout and after each resetKey change. A canvas that
+  // mounts fresh for a new view never sees the key change, so its parent sets this. When it is
+  // unset, a resetKey change leaves the focus alone.
   focusOnMount?: boolean
 }

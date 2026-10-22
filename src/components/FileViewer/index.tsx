@@ -12,6 +12,10 @@ interface FileViewerContentProps {
 
 interface FileViewerProps {
   nodes: FileViewerContent[]
+  // The name of the tab that is open on the first render. Without a match the default tab opens.
+  initialTable?: string
+  // Called with the name of the tab that the user selects.
+  onSelectTab?: (name: string | undefined) => void
 }
 
 function FileViewerContent({ file, contentType }: FileViewerContentProps) {
@@ -37,7 +41,7 @@ function FileViewerContent({ file, contentType }: FileViewerContentProps) {
   );
 }
 
-export default function FileViewer ({nodes}: FileViewerProps) {
+export default function FileViewer ({nodes, initialTable, onSelectTab}: FileViewerProps) {
 
   const filteredNodes = nodes.filter(node => !!node.content);
 
@@ -52,7 +56,10 @@ export default function FileViewer ({nodes}: FileViewerProps) {
     }
   )
 
-  const [selectedTab, setSelectedTab] = useState<string | null>(null);
+  const [selectedTab, setSelectedTab] = useState<string | null>(() => {
+    const initial = initialTable === undefined ? undefined : nodes.find(node => node.name === initialTable);
+    return initial ? initial.node.id + initial.name : null;
+  });
 
   return (
     <div className="border rounded-2">
@@ -60,7 +67,7 @@ export default function FileViewer ({nodes}: FileViewerProps) {
         ? <SkeletonText lines={10} />
         : <UnderlinePanels className="border-bottom" aria-label="Select a file" id="panels">
           {nodes.map((node) => (
-            <UnderlinePanels.Tab key={node.node.id + node.name} aria-selected={selectedTab === node.node.id + node.name} onSelect={() => setSelectedTab(node.node.id + node.name)}>{node.name || node.node.name}</UnderlinePanels.Tab>
+            <UnderlinePanels.Tab key={node.node.id + node.name} aria-selected={selectedTab === node.node.id + node.name} onSelect={() => { setSelectedTab(node.node.id + node.name); onSelectTab?.(node.name); }}>{node.name || node.node.name}</UnderlinePanels.Tab>
           ))}
           {nodes.map((node) => (
             <UnderlinePanels.Panel key={node.node.id + node.name} className="p-5">

@@ -309,8 +309,8 @@ export function GraphCanvas({
 
   // A changed resetKey is a new view. React lets a component reset state while it renders, so the new
   // epoch is known before anything is drawn. Results and expansion carry the epoch they were made in,
-  // and the scroll position is applied once for each epoch. A result that arrives late for an earlier
-  // view is therefore never drawn, and returning to an earlier resetKey starts like a new view.
+  // and the canvas scrolls once for each epoch. It therefore never draws a result that arrives late for
+  // an earlier view, and returning to an earlier resetKey starts like a new view.
   const [navigation, setNavigation] = useState({ viewKey: resetKey, epoch: 0 })
   const epoch = navigation.viewKey === resetKey ? navigation.epoch : navigation.epoch + 1
   if (navigation.viewKey !== resetKey) setNavigation({ viewKey: resetKey, epoch })
@@ -395,14 +395,15 @@ export function GraphCanvas({
   const menuEdge = openMenu ? layout?.edges.find((laid) => laid.edge.id === openMenu.edgeId) : undefined
 
   // After a navigation the container takes focus, because the focused node is gone. The first
-  // mount leaves focus alone unless focusOnMount is set.
+  // mount leaves focus alone unless focusOnMount is set. A view change that the owner makes with
+  // focusOnMount unset (a link from outside the graph) leaves the focus where it is.
   const lastEpoch = useRef(epoch)
   const focusOnDraw = useRef(focusOnMount)
   useLayoutEffect(() => {
     if (lastEpoch.current === epoch) return
     lastEpoch.current = epoch
-    focusOnDraw.current = true
-  }, [epoch])
+    focusOnDraw.current = focusOnMount
+  }, [epoch, focusOnMount])
 
   // A new view starts at the top left, or on centerNodeId. Expanding an edge keeps the scroll position.
   // A failed layout takes the focus too, because the container then shows the alert.

@@ -1,6 +1,7 @@
+import type { ProvenanceView } from '../../../provenance/navigation'
 import styles from './ProvenanceExplorer.module.css'
 
-export type ProvenanceView = 'datasets' | 'processes' | 'groups' | 'detail' | 'lineage'
+export type { ProvenanceView }
 
 interface LegendItem {
   label: string

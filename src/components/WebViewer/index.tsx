@@ -44,7 +44,7 @@ import RunMetadata from "../Metadata/RunMetadata";
 import WorkflowMetadata from "../Metadata/WorkflowMetadata";
 import FileTree from "../FileTree";
 import Icons from "../Icons";
-import { XCircleIcon } from "@primer/octicons-react";
+import { ChevronDownIcon, ChevronUpIcon, XCircleIcon } from "@primer/octicons-react";
 import { useMemoAsync } from "../../hooks/useMemoAsync";
 
 function normalizePath(path: string): string {
@@ -789,6 +789,8 @@ export default function WebViewer({
     const viewerRef = useRef<HTMLDivElement>(null);
     const provenanceRef = useRef<HTMLElement>(null);
     const provenanceHeadingRef = useRef<HTMLHeadingElement>(null);
+    const viewerHeaderRef = useRef<HTMLDivElement>(null);
+    const [graphVisible, setGraphVisible] = useState(true);
 
     const hasPath = useMemo(() => {
         return (path: string) =>
@@ -832,7 +834,15 @@ export default function WebViewer({
     const showInGraph = (target: Navigation) => {
         setGraphNav(target);
         setGraphFocus(false);
-        provenanceRef.current?.scrollIntoView({ block: "start" });
+        setGraphVisible(true);
+        // The sticky viewer header covers the top of the page, so the graph starts below it.
+        const section = provenanceRef.current;
+        if (section) {
+            const headerHeight = viewerHeaderRef.current?.offsetHeight ?? 0;
+            window.scrollTo({
+                top: section.getBoundingClientRect().top + window.scrollY - headerHeight,
+            });
+        }
         provenanceHeadingRef.current?.focus({ preventScroll: true });
     };
 
@@ -892,187 +902,203 @@ export default function WebViewer({
             </div>
         </div>
     ) : (
-        <>
-            <div
-                ref={viewerRef}
-                role="region"
-                aria-label="File viewer"
-                tabIndex={-1}
-            >
-                <SplitPageLayout>
-                    {/* <SplitPageLayout.Header >
-                </SplitPageLayout.Header> */}
-                    <div className="z-2">
-                        {sidebarActive && (isSmallScreen as boolean) && (
-                            <SideSheet close={() => setSidebarActive(false)}>
-                                {renderedTree}
-                            </SideSheet>
-                        )}
-                    </div>
-                    <SplitPageLayout.Pane
-                        aria-label="Sidebar"
-                        resizable={true}
-                        widthStorageKey={"arc-webviewer-sidebar-width"}
-                        hidden={!sidebarActive || (isSmallScreen as boolean)}
-                        sticky={true}
-                    >
-                        {renderedTree}
-                    </SplitPageLayout.Pane>
-                    <SplitPageLayout.Content>
-                        <Stack>
-                            <div className="bgColor-default py-2 position-sticky top-0 z-1 d-flex flex-items-start">
-                                <Stack
-                                    className="flex-column flex-sm-row flex-items-start flex-sm-items-center"
-                                    style={{ width: "100%" }}
-                                >
-                                    <div
-                                        className="d-flex flex-row"
-                                        style={{ gap: "0.5rem" }}
-                                    >
-                                        <IconButton
-                                            aria-label="Expand sidebar"
-                                            variant="invisible"
-                                            icon={
-                                                sidebarActive
-                                                    ? Icons.SidebarCollapseIcon
-                                                    : Icons.SidebarExpandIcon
-                                            }
-                                            onClick={() =>
-                                                setSidebarActive(!sidebarActive)
-                                            }
-                                        />
-                                        <TreeSearch navigateTo={navigateTo} />
-                                    </div>
-                                    {currentTreeNode &&
-                                        arc.value &&
-                                        arc.value.Title && (
-                                            <FileBreadcrumbs
-                                                currentTreeNode={currentTreeNode}
-                                                navigateTo={navigateTo}
-                                                title={arc.value.Title}
-                                            />
-                                        )}
-                                    {graphTarget && (
-                                        <Button
-                                            size="small"
-                                            onClick={() => showInGraph(graphTarget)}
-                                        >
-                                            Show in provenance graph
-                                        </Button>
-                                    )}
-                                    {clearJsonCallback && (
-                                        <IconButton
-                                            style={{ marginLeft: "auto" }}
-                                            aria-label="Clear loaded JSON and upload new"
-                                            variant="danger"
-                                            icon={XCircleIcon}
-                                            onClick={() => clearJsonCallback()}
-                                        />
-                                    )}
-                                </Stack>
-                            </div>
-                            {currentTreeNode &&
-                            currentTreeNode.type === "file" &&
-                            arc.value ? (
-                                <RenderFileComponentByName
-                                    key={currentTreeNode.id + "|" + tableRequest.seq}
-                                    currentTreeNode={currentTreeNode}
-                                    arc={arc.value}
-                                    initialTable={tableRequest.table}
-                                    onSelectTab={setSelectedTable}
-                                />
-                            ) : (
-                                <FileTable
-                                    loading={arc.loading}
-                                    currentTreeNode={currentTreeNode}
-                                    navigateTo={navigateTo}
-                                />
-                            )}
-                            {tree.value &&
-                                currentTreeNode &&
-                                currentTreeNode.name === "root" &&
-                                currentTreeNode.type === "folder" &&
-                                (readmefetch || licensefetch) && (
-                                    <FileViewer
-                                        nodes={[
-                                            {
-                                                node: {
-                                                    id: currentTreeNode.name + "readme",
-                                                    name: "README.md",
-                                                    type: "file",
-                                                },
-                                                contentType: "markdown",
-                                                content: readmefetch,
-                                            },
-                                            {
-                                                node: {
-                                                    id:
-                                                        currentTreeNode.name +
-                                                        "license",
-                                                    name: "LICENSE.md",
-                                                    type: "file",
-                                                },
-                                                contentType: "markdown",
-                                                content: licensefetch,
-                                            },
-                                        ]}
-                                    />
-                                )}
-                        </Stack>
-                    </SplitPageLayout.Content>
-                </SplitPageLayout>
-            </div>
-            {arc.value && (
-                <section
-                    ref={provenanceRef}
-                    aria-labelledby="provenance-graph-heading"
-                    className="px-3 px-md-4 pb-4"
-                >
-                    <Heading
-                        ref={provenanceHeadingRef}
-                        as="h2"
-                        variant="medium"
-                        className="mb-2"
-                        id="provenance-graph-heading"
-                        tabIndex={-1}
-                    >
-                        Provenance graph
-                    </Heading>
-                    {built?.error !== undefined && (
-                        <Banner
-                            variant="critical"
-                            title="The provenance graph could not be built."
-                            description={built.error}
-                        />
+        <div
+            ref={viewerRef}
+            role="region"
+            aria-label="File viewer"
+            tabIndex={-1}
+        >
+            <SplitPageLayout>
+                {/* <SplitPageLayout.Header >
+            </SplitPageLayout.Header> */}
+                <div className="z-2">
+                    {sidebarActive && (isSmallScreen as boolean) && (
+                        <SideSheet close={() => setSidebarActive(false)}>
+                            {renderedTree}
+                        </SideSheet>
                     )}
-                    {built?.index && (
-                        <ProvenanceGraph
-                            key={built.key}
-                            index={built.index}
-                            nav={graphNav}
-                            onNavChange={(next) => {
-                                setGraphNav(next);
-                                setGraphFocus(true);
-                            }}
-                            focusOnNavigation={graphFocus}
-                            actions={
-                                viewerTarget ? (
+                </div>
+                <SplitPageLayout.Pane
+                    aria-label="Sidebar"
+                    resizable={true}
+                    widthStorageKey={"arc-webviewer-sidebar-width"}
+                    hidden={!sidebarActive || (isSmallScreen as boolean)}
+                    sticky={true}
+                >
+                    {renderedTree}
+                </SplitPageLayout.Pane>
+                <SplitPageLayout.Content>
+                    <Stack>
+                        <div
+                            ref={viewerHeaderRef}
+                            className="bgColor-default py-2 position-sticky top-0 z-1 d-flex flex-items-start"
+                        >
+                            <Stack
+                                className="flex-column flex-sm-row flex-items-start flex-sm-items-center"
+                                style={{ width: "100%" }}
+                            >
+                                <div
+                                    className="d-flex flex-row"
+                                    style={{ gap: "0.5rem" }}
+                                >
+                                    <IconButton
+                                        aria-label="Expand sidebar"
+                                        variant="invisible"
+                                        icon={
+                                            sidebarActive
+                                                ? Icons.SidebarCollapseIcon
+                                                : Icons.SidebarExpandIcon
+                                        }
+                                        onClick={() =>
+                                            setSidebarActive(!sidebarActive)
+                                        }
+                                    />
+                                    <TreeSearch navigateTo={navigateTo} />
+                                </div>
+                                {currentTreeNode &&
+                                    arc.value &&
+                                    arc.value.Title && (
+                                        <FileBreadcrumbs
+                                            currentTreeNode={currentTreeNode}
+                                            navigateTo={navigateTo}
+                                            title={arc.value.Title}
+                                        />
+                                    )}
+                                {graphTarget && (
                                     <Button
                                         size="small"
-                                        title={viewerTargetTitle(
-                                            viewerTarget,
-                                            arc.value.Title
-                                        )}
-                                        onClick={() => openInViewer(viewerTarget)}
+                                        onClick={() => showInGraph(graphTarget)}
                                     >
-                                        Show in file viewer
+                                        Show in provenance graph
                                     </Button>
-                                ) : undefined
-                            }
-                        />
-                    )}
-                </section>
-            )}
-        </>
+                                )}
+                                {clearJsonCallback && (
+                                    <IconButton
+                                        style={{ marginLeft: "auto" }}
+                                        aria-label="Clear loaded JSON and upload new"
+                                        variant="danger"
+                                        icon={XCircleIcon}
+                                        onClick={() => clearJsonCallback()}
+                                    />
+                                )}
+                            </Stack>
+                        </div>
+                        {currentTreeNode &&
+                        currentTreeNode.type === "file" &&
+                        arc.value ? (
+                            <RenderFileComponentByName
+                                key={currentTreeNode.id + "|" + tableRequest.seq}
+                                currentTreeNode={currentTreeNode}
+                                arc={arc.value}
+                                initialTable={tableRequest.table}
+                                onSelectTab={setSelectedTable}
+                            />
+                        ) : (
+                            <FileTable
+                                loading={arc.loading}
+                                currentTreeNode={currentTreeNode}
+                                navigateTo={navigateTo}
+                            />
+                        )}
+                        {tree.value &&
+                            currentTreeNode &&
+                            currentTreeNode.name === "root" &&
+                            currentTreeNode.type === "folder" &&
+                            (readmefetch || licensefetch) && (
+                                <FileViewer
+                                    nodes={[
+                                        {
+                                            node: {
+                                                id: currentTreeNode.name + "readme",
+                                                name: "README.md",
+                                                type: "file",
+                                            },
+                                            contentType: "markdown",
+                                            content: readmefetch,
+                                        },
+                                        {
+                                            node: {
+                                                id:
+                                                    currentTreeNode.name +
+                                                    "license",
+                                                name: "LICENSE.md",
+                                                type: "file",
+                                            },
+                                            contentType: "markdown",
+                                            content: licensefetch,
+                                        },
+                                    ]}
+                                />
+                            )}
+                        {arc.value && (
+                            <section
+                                ref={provenanceRef}
+                                aria-labelledby="provenance-graph-heading"
+                                className="mt-4 pb-4"
+                            >
+                                <div className="d-flex flex-items-center mb-2" style={{ gap: "0.5rem" }}>
+                                    <Heading
+                                        ref={provenanceHeadingRef}
+                                        as="h2"
+                                        variant="medium"
+                                        id="provenance-graph-heading"
+                                        tabIndex={-1}
+                                    >
+                                        Provenance graph
+                                    </Heading>
+                                    <Button
+                                        size="small"
+                                        variant="invisible"
+                                        leadingVisual={graphVisible ? ChevronUpIcon : ChevronDownIcon}
+                                        aria-expanded={graphVisible}
+                                        aria-controls="provenance-graph-body"
+                                        onClick={() => setGraphVisible(!graphVisible)}
+                                    >
+                                        {graphVisible ? "Hide" : "Show"}
+                                    </Button>
+                                </div>
+                                {graphVisible && (
+                                    <div id="provenance-graph-body">
+                                        {built?.error !== undefined && (
+                                            <Banner
+                                                variant="critical"
+                                                title="The provenance graph could not be built."
+                                                description={built.error}
+                                            />
+                                        )}
+                                        {built?.index && (
+                                            <ProvenanceGraph
+                                                key={built.key}
+                                                index={built.index}
+                                                nav={graphNav}
+                                                onNavChange={(next) => {
+                                                    setGraphNav(next);
+                                                    setGraphFocus(true);
+                                                }}
+                                                focusOnNavigation={graphFocus}
+                                                actions={
+                                                    viewerTarget ? (
+                                                        <Button
+                                                            size="small"
+                                                            title={viewerTargetTitle(
+                                                                viewerTarget,
+                                                                arc.value.Title
+                                                            )}
+                                                            onClick={() => openInViewer(viewerTarget)}
+                                                        >
+                                                            Show in file viewer
+                                                        </Button>
+                                                    ) : undefined
+                                                }
+                                            />
+                                        )}
+                                    </div>
+                                )}
+                            </section>
+                        )}
+                    </Stack>
+                </SplitPageLayout.Content>
+            </SplitPageLayout>
+        </div>
     );
 }
